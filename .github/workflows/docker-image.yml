@@ -1,4 +1,4 @@
-name: Push docker image
+name: Push Docker Image on Tag
 
 on:
   push:
@@ -6,29 +6,38 @@ on:
       - "v*"
 
 jobs:
-  push:
-    name: Build and push Docker image
+  build-and-push:
+    name: Build and push Docker image to GHCR
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      actions: read
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2.2.0
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.20
-          cache: true
+          go-version: "1.20" # Match Dockerfile
+          cache: true # Enable Go build/module caching
 
-      - name: Get deps for multi-arch build
+      # *** This step is REQUIRED due to '-mod vendor' in Dockerfile ***
+      - name: Vendor Go dependencies
         run: go mod vendor
+        # This creates the ./vendor directory needed by the Docker build's COPY step
 
-      - uses: actions/checkout@v4
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=tag
+            type=raw,value=latest
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -40,15 +49,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Image
+      - name: Build and Push Docker Image
+        id: build-push
         uses: docker/build-push-action@v5
-        id: docker_build
         with:
           context: .
           push: true
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/${{ inputs.service-name }}:latest
-          cache-to: type=inline
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
-          tags: |
-            ${{ github.repository }}:latest
-            ${{ github.repository }}:${{ github.ref_name }}
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
