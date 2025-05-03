@@ -9,6 +9,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/paradoxe35/sqlite-rest/pkg/controllers"
+	"github.com/paradoxe35/sqlite-rest/pkg/middleware"
 )
 
 const (
@@ -55,6 +56,16 @@ func main() {
 
 	router.OPTIONS("/__/exec", controllers.Exec(*dbPath))
 
+	// Check if authentication is enabled
+	username := os.Getenv("SQLITE_REST_USERNAME")
+	password := os.Getenv("SQLITE_REST_PASSWORD")
+	if username != "" && password != "" {
+		log.Println("Basic Authentication enabled")
+	}
+
+	// Create a handler with the router
+	handler := middleware.BasicAuth(router)
+
 	log.Println("Listening on port " + *port)
-	log.Fatal(http.ListenAndServe(":"+*port, router))
+	log.Fatal(http.ListenAndServe(":"+*port, handler))
 }

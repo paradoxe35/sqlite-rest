@@ -1,25 +1,11 @@
 # sqlite-rest
 
-<p align="center">
-  <a href="https://github.com/paradoxe35/sqlite-rest/actions">
-    <img alt="GitHub Workflow Status (branch)" src="https://img.shields.io/github/actions/workflow/status/paradoxe35/sqlite-rest/docker-image.yml" />
-  </a>
-
-  <a href="https://github.com/paradoxe35/sqlite-rest/blob/master/go.mod">
-    <img alt="GitHub go.mod Go version" src="https://img.shields.io/github/go-mod/go-version/paradoxe35/sqlite-rest" />
-  </a>
-
-  <a href="https://hub.docker.com/r/paradoxe35/sqlite-rest">
-    <img alt="Docker Image Size (tag)" src="https://img.shields.io/docker/image-size/paradoxe35/sqlite-rest/latest" />
-  </a>
-</p>
-
-Expose CRUD operations for SQLite database over HTTP via REST API. 
+Expose CRUD operations for SQLite database over HTTP via REST API.
 
 ## Installation
 
 ### From releases page
-  
+
 Download the binary for your platform from the [releases page](https://github.com/paradoxe35/sqlite-rest/releases)
 
 ### From source
@@ -45,7 +31,7 @@ Usage of sqlite-rest:
         Port to listen on (default 8080)
 
 # Example with default values
-$ sqlite-rest 
+$ sqlite-rest
 2023/01/08 17:56:21 Database not found. Creating new one in ./data.sqlite
 2023/01/08 17:56:21 Using database in ./data.sqlite
 2023/01/08 17:56:21 Listening on port 8080
@@ -60,7 +46,7 @@ $ docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data.sqlite:rw paradoxe35
 ```
 
 **With docker compose**
-  
+
 ```yaml
   version: "3.7"
 
@@ -70,7 +56,52 @@ $ docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data.sqlite:rw paradoxe35
       ports:
         - "8080:8080"
       volumes:
-        - ./data.sqlite:/app/data.sqlite:rw 
+        - ./data.sqlite:/app/data.sqlite:rw
+```
+
+## Authentication
+
+SQLite REST supports Basic Authentication. To enable it, set the following environment variables:
+
+- `SQLITE_REST_USERNAME`: The username for Basic Authentication
+- `SQLITE_REST_PASSWORD`: The password for Basic Authentication
+
+If both variables are set, Basic Authentication will be enabled. If either variable is not set, authentication will be disabled.
+
+Example with environment variables:
+
+```bash
+$ SQLITE_REST_USERNAME=admin SQLITE_REST_PASSWORD=secret sqlite-rest
+2023/01/08 17:56:21 Database not found. Creating new one in ./data.sqlite
+2023/01/08 17:56:21 Using database in ./data.sqlite
+2023/01/08 17:56:21 Basic Authentication enabled
+2023/01/08 17:56:21 Listening on port 8080
+```
+
+Example with Docker:
+
+```bash
+$ docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data.sqlite:rw \
+  -e SQLITE_REST_USERNAME=admin \
+  -e SQLITE_REST_PASSWORD=secret \
+  paradoxe35/sqlite-rest
+```
+
+Example with Docker Compose:
+
+```yaml
+version: "3.7"
+
+services:
+  sqlite-rest:
+    image: paradoxe35/sqlite-rest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data.sqlite:/app/data.sqlite:rw
+    environment:
+      - SQLITE_REST_USERNAME=admin
+      - SQLITE_REST_PASSWORD=secret
 ```
 
 ## API
@@ -174,9 +205,9 @@ Example:<br>
 $ curl localhost:8080/cats/1
 
 {
-  "id": 1, 
-  "name": "Tequila", 
-  "paw": 4 
+  "id": 1,
+  "name": "Tequila",
+  "paw": 4
 }
 ```
 
@@ -190,8 +221,8 @@ Example with parameters:<br>
 $ curl localhost:8080/cats/1?columns=name,paw
 
 {
-  "name": "Tequila", 
-  "paw": 4 
+  "name": "Tequila",
+  "paw": 4
 }
 ```
 
@@ -256,7 +287,7 @@ Example:<br>
 $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "create table cats (id PRIMARY_KEY, name TEXT, paw INTEGER)"}' localhost:8080/__/exec
 
 {
-  "status": "success", 
+  "status": "success",
 }
 ```
 
