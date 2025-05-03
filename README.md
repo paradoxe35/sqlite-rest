@@ -246,10 +246,10 @@ You can customize the list of dangerous operations by setting the `SQLITE_REST_D
 SQLITE_REST_DANGEROUS_OPS="DROP TABLE,DELETE FROM"
 ```
 
-To allow all operations (use with caution), set the variable to ALL:
+To allow all operations (use with caution), set the variable to an empty string:
 
 ```
-SQLITE_REST_DANGEROUS_OPS="ALL"
+SQLITE_REST_DANGEROUS_OPS=""
 ```
 
 Example of creating a table:<br>
