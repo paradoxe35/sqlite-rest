@@ -16,49 +16,6 @@ $ go get github.com/paradoxe35/sqlite-rest
 
 ### From Docker
 
-```bash
-$ docker pull paradoxe35/sqlite-rest
-```
-
-## CLI usage
-
-```bash
-$ sqlite-rest -h
-Usage of sqlite-rest:
-  -f string
-        Path to the SQLite database file (default "data.sqlite")
-  -p string
-        Port to listen on (default 8080)
-
-# Example with default values
-$ sqlite-rest
-2023/01/08 17:56:21 Database not found. Creating new one in ./data.sqlite
-2023/01/08 17:56:21 Using database in ./data.sqlite
-2023/01/08 17:56:21 Listening on port 8080
-```
-
-## Docker usage
-
-Only 6 MB of size. Build available for ARM64, ARMv7 and AMD64.
-
-```bash
-$ docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data.sqlite:rw paradoxe35/sqlite-rest
-```
-
-**With docker compose**
-
-```yaml
-  version: "3.7"
-
-  services:
-    sqlite-rest:
-      image: paradoxe35/sqlite-rest
-      ports:
-        - "8080:8080"
-      volumes:
-        - ./data.sqlite:/app/data.sqlite:rw
-```
-
 ## Authentication
 
 SQLite REST supports Basic Authentication. To enable it, set the following environment variables:
@@ -68,23 +25,13 @@ SQLite REST supports Basic Authentication. To enable it, set the following envir
 
 If both variables are set, Basic Authentication will be enabled. If either variable is not set, authentication will be disabled.
 
-Example with environment variables:
-
-```bash
-$ SQLITE_REST_USERNAME=admin SQLITE_REST_PASSWORD=secret sqlite-rest
-2023/01/08 17:56:21 Database not found. Creating new one in ./data.sqlite
-2023/01/08 17:56:21 Using database in ./data.sqlite
-2023/01/08 17:56:21 Basic Authentication enabled
-2023/01/08 17:56:21 Listening on port 8080
-```
-
 Example with Docker:
 
 ```bash
 $ docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data.sqlite:rw \
   -e SQLITE_REST_USERNAME=admin \
   -e SQLITE_REST_PASSWORD=secret \
-  paradoxe35/sqlite-rest
+  ghcr.io/paradoxe35/sqlite-rest
 ```
 
 Example with Docker Compose:
@@ -94,7 +41,7 @@ version: "3.7"
 
 services:
   sqlite-rest:
-    image: paradoxe35/sqlite-rest
+    image: ghcr.io/paradoxe35/sqlite-rest
     ports:
       - "8080:8080"
     volumes:
@@ -281,13 +228,58 @@ Execute an arbitrary query. ⚠️ Experimental<br>
 
 Request: `OPTIONS /__/exec`<br>
 
-Example:<br>
+This endpoint is protected by authentication when enabled. It allows executing SQL queries and returns the results.
+
+For security reasons, the following operations are blocked:
+- DROP TABLE
+- DROP DATABASE
+- DELETE FROM
+- TRUNCATE TABLE
+- ALTER TABLE
+- PRAGMA
+- ATTACH DATABASE
+- DETACH DATABASE
+
+Example of creating a table:<br>
 
 ```bash
-$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "create table cats (id PRIMARY_KEY, name TEXT, paw INTEGER)"}' localhost:8080/__/exec
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "CREATE TABLE cats (id INTEGER PRIMARY KEY, name TEXT, paw INTEGER)"}' localhost:8080/__/exec
 
 {
   "status": "success",
+  "type": "create",
+  "rows_affected": 0
+}
+```
+
+Example of inserting data:<br>
+
+```bash
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "INSERT INTO cats (name, paw) VALUES (\"Tequila\", 4)"}' localhost:8080/__/exec
+
+{
+  "status": "success",
+  "type": "insert",
+  "rows_affected": 1
+}
+```
+
+Example of selecting data:<br>
+
+```bash
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SELECT * FROM cats"}' localhost:8080/__/exec
+
+{
+  "status": "success",
+  "type": "select",
+  "rows": [
+    {
+      "id": 1,
+      "name": "Tequila",
+      "paw": 4
+    }
+  ],
+  "count": 1
 }
 ```
 
