@@ -45,10 +45,14 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./data.sqlite:/app/data/data.sqlite:rw
+      - ./data.sqlite:/app/data/data.sqlite:rw # OR sqlite-data:/app/data
     environment:
       - SQLITE_REST_USERNAME=admin
       - SQLITE_REST_PASSWORD=secret
+
+# volumes:
+#   sqlite-data:
+#     driver: local
 ```
 
 ## API
