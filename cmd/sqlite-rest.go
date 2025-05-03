@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/paradoxe35/sqlite-rest/pkg/controllers"
@@ -15,7 +16,7 @@ import (
 const (
 	VERSION         = "1.0.0"
 	DEFAULT_PORT    = "8080"
-	DEFAULT_DB_PATH = "./data.sqlite"
+	DEFAULT_DB_PATH = "./data/data.sqlite"
 )
 
 var help = flag.Bool("help", false, "Show help")
@@ -28,6 +29,15 @@ func main() {
 	if *help {
 		flag.Usage()
 		os.Exit(0)
+	}
+
+	// Ensure the directory exists
+	dbDir := filepath.Dir(*dbPath)
+	if dbDir != "." {
+		err := os.MkdirAll(dbDir, 0755)
+		if err != nil {
+			log.Fatal("Error creating directory for database: " + err.Error())
+		}
 	}
 
 	_, err := os.Stat(*dbPath)

@@ -28,7 +28,7 @@ If both variables are set, Basic Authentication will be enabled. If either varia
 Example with Docker:
 
 ```bash
-$ docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data.sqlite:rw \
+$ docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data/data.sqlite:rw \
   -e SQLITE_REST_USERNAME=admin \
   -e SQLITE_REST_PASSWORD=secret \
   ghcr.io/paradoxe35/sqlite-rest
@@ -45,7 +45,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./data.sqlite:/app/data.sqlite:rw
+      - ./data.sqlite:/app/data/data.sqlite:rw
     environment:
       - SQLITE_REST_USERNAME=admin
       - SQLITE_REST_PASSWORD=secret
