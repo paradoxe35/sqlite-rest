@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
@@ -14,8 +15,8 @@ type ExecBody struct {
 	Query string `json:"query"`
 }
 
-// List of dangerous SQL operations that should be blocked
-var dangerousOperations = []string{
+// Default list of dangerous SQL operations that should be blocked
+var defaultDangerousOperations = []string{
 	"DROP TABLE",
 	"DROP DATABASE",
 	"DELETE FROM",
@@ -26,13 +27,50 @@ var dangerousOperations = []string{
 	"DETACH DATABASE",
 }
 
+// getDangerousOperations returns the list of dangerous operations
+// It checks if the user has defined custom dangerous operations via environment variables
+func getDangerousOperations() []string {
+	// Check if user has defined custom dangerous operations
+	customOperations := os.Getenv("SQLITE_REST_DANGEROUS_OPS")
+
+	// Check if the environment variable exists
+	_, exists := os.LookupEnv("SQLITE_REST_DANGEROUS_OPS")
+
+	// If the environment variable exists (even if empty), use it
+	if exists {
+		// If it's empty, return an empty list (all operations allowed)
+		if customOperations == "ALL" {
+			return []string{}
+		}
+
+		// Parse comma-separated list
+		operations := strings.Split(customOperations, ",")
+		// Trim whitespace
+		for i, op := range operations {
+			operations[i] = strings.TrimSpace(op)
+		}
+		return operations
+	}
+
+	// Return default list if no custom operations defined
+	return defaultDangerousOperations
+}
+
 // isQuerySafe checks if the query contains any dangerous operations
 func isQuerySafe(query string) bool {
 	upperQuery := strings.ToUpper(query)
 
+	// Get the list of dangerous operations (either default or custom)
+	dangerousOperations := getDangerousOperations()
+
+	// If the list is empty, all operations are allowed
+	if len(dangerousOperations) == 0 {
+		return true
+	}
+
 	// Check for dangerous operations
 	for _, op := range dangerousOperations {
-		if strings.Contains(upperQuery, op) {
+		if op != "" && strings.Contains(upperQuery, op) {
 			return false
 		}
 	}
@@ -53,9 +91,40 @@ func determineQueryType(query string) string {
 		return "UPDATE"
 	} else if strings.HasPrefix(upperQuery, "CREATE") {
 		return "CREATE"
+	} else if strings.HasPrefix(upperQuery, "SHOW TABLES") ||
+		strings.HasPrefix(upperQuery, "LIST TABLES") {
+		return "SHOW_TABLES"
 	}
 
 	return "OTHER"
+}
+
+// listTables returns a list of all tables in the database
+func listTables(db *sql.DB) ([]string, error) {
+	// In SQLite, we can query the sqlite_master table to get a list of all tables
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		// Skip internal SQLite tables
+		if !strings.HasPrefix(name, "sqlite_") {
+			tables = append(tables, name)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tables, nil
 }
 
 // executeSelect handles SELECT queries and returns the results
@@ -213,7 +282,30 @@ func Exec(dbPath string) httprouter.Handle {
 		// Execute query based on type
 		var result interface{}
 
-		if queryType == "SELECT" {
+		if queryType == "SHOW_TABLES" {
+			// Handle SHOW TABLES command
+			tables, err := listTables(db)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			// Convert to rows format for consistency
+			var rows []map[string]interface{}
+			for _, table := range tables {
+				rows = append(rows, map[string]interface{}{
+					"table_name": table,
+				})
+			}
+
+			result = map[string]interface{}{
+				"status": "success",
+				"type":   "show_tables",
+				"tables": tables,
+				"rows":   rows,
+				"count":  len(tables),
+			}
+		} else if queryType == "SELECT" {
 			// Handle SELECT query
 			rows, err := executeSelect(db, data.Query)
 			if err != nil {

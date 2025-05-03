@@ -230,7 +230,7 @@ Request: `OPTIONS /__/exec`<br>
 
 This endpoint is protected by authentication when enabled. It allows executing SQL queries and returns the results.
 
-For security reasons, the following operations are blocked:
+For security reasons, the following operations are blocked by default:
 - DROP TABLE
 - DROP DATABASE
 - DELETE FROM
@@ -239,6 +239,18 @@ For security reasons, the following operations are blocked:
 - PRAGMA
 - ATTACH DATABASE
 - DETACH DATABASE
+
+You can customize the list of dangerous operations by setting the `SQLITE_REST_DANGEROUS_OPS` environment variable. This should be a comma-separated list of SQL operations to block. For example:
+
+```
+SQLITE_REST_DANGEROUS_OPS="DROP TABLE,DELETE FROM"
+```
+
+To allow all operations (use with caution), set the variable to ALL:
+
+```
+SQLITE_REST_DANGEROUS_OPS="ALL"
+```
 
 Example of creating a table:<br>
 
@@ -282,6 +294,26 @@ $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SELECT * FR
   "count": 1
 }
 ```
+
+Example of listing tables:<br>
+
+```bash
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SHOW TABLES"}' localhost:8080/__/exec
+
+{
+  "status": "success",
+  "type": "show_tables",
+  "tables": ["cats", "dogs", "birds"],
+  "rows": [
+    {"table_name": "cats"},
+    {"table_name": "dogs"},
+    {"table_name": "birds"}
+  ],
+  "count": 3
+}
+```
+
+You can also use `LIST TABLES` as an alternative to `SHOW TABLES`.
 
 ## License
 
