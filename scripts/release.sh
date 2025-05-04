@@ -26,7 +26,7 @@ PLATFORMS=(
 )
 
 # Build flags for optimization and smaller binaries
-BUILD_FLAGS="-trimpath -ldflags '-s -w -X main.VERSION=${VERSION}' -tags netgo"
+BUILD_FLAGS="-trimpath -ldflags \"-s -w -X main.VERSION=${VERSION}\" -tags netgo"
 
 # Create directories and build binaries for each platform
 for platform in "${PLATFORMS[@]}"; do
