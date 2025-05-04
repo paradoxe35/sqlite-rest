@@ -58,17 +58,17 @@ func main() {
 	router := middleware.NewCustomRouter()
 
 	// Metadata endpoints
-	router.GET("/api/tables", controllers.GetTables(*dbPath))
-	router.GET("/api/tables/:table", controllers.GetTableSchema(*dbPath))
-	router.GET("/api/tables/:table/foreign-keys", controllers.GetForeignKeys(*dbPath))
-	router.GET("/api/db", controllers.GetDatabaseInfo(*dbPath))
+	router.GET("/__/tables", controllers.GetTables(*dbPath))
+	router.GET("/__/tables/:table", controllers.GetTableSchema(*dbPath))
+	router.GET("/__/tables/:table/foreign-keys", controllers.GetForeignKeys(*dbPath))
+	router.GET("/__/db", controllers.GetDatabaseInfo(*dbPath))
 
 	// Utility endpoints
-	router.GET("/api/health", controllers.HealthCheck(*dbPath))
-	router.GET("/api/version", controllers.GetApiVersion())
+	router.GET("/__/health", controllers.HealthCheck(*dbPath))
+	router.GET("/__/version", controllers.GetApiVersion())
 
 	// SQL execution endpoint
-	router.OPTIONS("/api/exec", controllers.Exec(*dbPath))
+	router.OPTIONS("/__/exec", controllers.Exec(*dbPath))
 
 	// Core CRUD endpoints
 	router.GET("/:table", controllers.GetAll(*dbPath))

@@ -64,19 +64,19 @@ services:
 [Create record](#create-record) - `POST /:table` <br>
 [Update record by id](#update-record) - `PATCH /:table/:id` <br>
 [Delete record by id](#delete-record) - `DELETE /:table/:id` <br>
-[Execute arbitrary query](#execute-arbitrary-query) - `OPTIONS /api/exec` <br>
+[Execute arbitrary query](#execute-arbitrary-query) - `OPTIONS /__/exec` <br>
 
 # Metadata API
 
-[List all tables](#list-all-tables) - `GET /api/tables` <br>
-[Get table schema](#get-table-schema) - `GET /api/tables/:table` <br>
-[Get foreign keys](#get-foreign-keys) - `GET /api/tables/:table/foreign-keys` <br>
-[Get database info](#get-database-info) - `GET /api/db` <br>
+[List all tables](#list-all-tables) - `GET /__/tables` <br>
+[Get table schema](#get-table-schema) - `GET /__/tables/:table` <br>
+[Get foreign keys](#get-foreign-keys) - `GET /__/tables/:table/foreign-keys` <br>
+[Get database info](#get-database-info) - `GET /__/db` <br>
 
 # Utility API
 
-[Health check](#health-check) - `GET /api/health` <br>
-[API version](#api-version) - `GET /api/version` <br>
+[Health check](#health-check) - `GET /__/health` <br>
+[API version](#api-version) - `GET /__/version` <br>
 
 ### Search all records
 
@@ -244,7 +244,7 @@ $ curl -X DELETE localhost:8080/cats/1
 
 Execute an arbitrary query. ⚠️ Experimental<br>
 
-Request: `OPTIONS /api/exec`<br>
+Request: `OPTIONS /__/exec`<br>
 
 This endpoint is protected by authentication when enabled. It allows executing SQL queries and returns the results.
 
@@ -273,7 +273,7 @@ SQLITE_REST_DANGEROUS_OPS=""
 Example of creating a table:<br>
 
 ```bash
-$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "CREATE TABLE cats (id INTEGER PRIMARY KEY, name TEXT, paw INTEGER)"}' localhost:8080/api/exec
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "CREATE TABLE cats (id INTEGER PRIMARY KEY, name TEXT, paw INTEGER)"}' localhost:8080/__/exec
 
 {
   "status": "success",
@@ -285,7 +285,7 @@ $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "CREATE TABL
 Example of inserting data:<br>
 
 ```bash
-$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "INSERT INTO cats (name, paw) VALUES (\"Tequila\", 4)"}' localhost:8080/api/exec
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "INSERT INTO cats (name, paw) VALUES (\"Tequila\", 4)"}' localhost:8080/__/exec
 
 {
   "status": "success",
@@ -297,7 +297,7 @@ $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "INSERT INTO
 Example of selecting data:<br>
 
 ```bash
-$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SELECT * FROM cats"}' localhost:8080/api/exec
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SELECT * FROM cats"}' localhost:8080/__/exec
 
 {
   "status": "success",
@@ -316,7 +316,7 @@ $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SELECT * FR
 Example of listing tables:<br>
 
 ```bash
-$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SHOW TABLES"}' localhost:8080/api/exec
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SHOW TABLES"}' localhost:8080/__/exec
 
 {
   "status": "success",
@@ -337,12 +337,12 @@ You can also use `LIST TABLES` as an alternative to `SHOW TABLES`.
 
 Get a list of all tables in the database.
 
-Request: `GET /api/tables`
+Request: `GET /__/tables`
 
 Example:
 
 ```bash
-$ curl localhost:8080/api/tables
+$ curl localhost:8080/__/tables
 
 {
   "status": "success",
@@ -355,12 +355,12 @@ $ curl localhost:8080/api/tables
 
 Get the schema of a specific table.
 
-Request: `GET /api/tables/:table`
+Request: `GET /__/tables/:table`
 
 Example:
 
 ```bash
-$ curl localhost:8080/api/tables/cats
+$ curl localhost:8080/__/tables/cats
 
 {
   "status": "success",
@@ -398,12 +398,12 @@ $ curl localhost:8080/api/tables/cats
 
 Get the foreign key relationships for a specific table.
 
-Request: `GET /api/tables/:table/foreign-keys`
+Request: `GET /__/tables/:table/foreign-keys`
 
 Example:
 
 ```bash
-$ curl localhost:8080/api/tables/cats/foreign-keys
+$ curl localhost:8080/__/tables/cats/foreign-keys
 
 {
   "status": "success",
@@ -427,12 +427,12 @@ $ curl localhost:8080/api/tables/cats/foreign-keys
 
 Get general information about the database.
 
-Request: `GET /api/db`
+Request: `GET /__/db`
 
 Example:
 
 ```bash
-$ curl localhost:8080/api/db
+$ curl localhost:8080/__/db
 
 {
   "status": "success",
@@ -448,12 +448,12 @@ $ curl localhost:8080/api/db
 
 Check if the API is healthy.
 
-Request: `GET /api/health`
+Request: `GET /__/health`
 
 Example:
 
 ```bash
-$ curl localhost:8080/api/health
+$ curl localhost:8080/__/health
 
 {
   "status": "success",
@@ -465,12 +465,12 @@ $ curl localhost:8080/api/health
 
 Get the API version.
 
-Request: `GET /api/version`
+Request: `GET /__/version`
 
 Example:
 
 ```bash
-$ curl localhost:8080/api/version
+$ curl localhost:8080/__/version
 
 {
   "status": "success",
