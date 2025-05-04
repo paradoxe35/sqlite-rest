@@ -1,11 +1,13 @@
-FROM golang:1.20-bullseye AS builder
+FROM golang:1.21-bullseye AS builder
 WORKDIR /build
 
 # Import the codebase
 COPY . .
 
-# Create binary
-RUN go build -mod vendor -a -tags netgo -ldflags '-w -extldflags "-static"' -o ./bin/sqlite-rest ./cmd/sqlite-rest.go & wait
+# Create binary with optimizations
+RUN VERSION=$(git describe --tags || echo "dev") && \
+    go build -mod vendor -trimpath -a -tags netgo -ldflags "-s -w -X main.VERSION=${VERSION} -extldflags \"-static\"" \
+    -o ./bin/sqlite-rest ./cmd/sqlite-rest.go
 
 
 FROM scratch AS runner

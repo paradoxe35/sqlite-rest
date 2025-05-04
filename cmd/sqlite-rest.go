@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,13 +13,16 @@ import (
 	"github.com/paradoxe35/sqlite-rest/pkg/middleware"
 )
 
+// VERSION is the application version, can be set during build with -X flag
+var VERSION = "1.1.0"
+
 const (
-	VERSION         = "1.0.0"
 	DEFAULT_PORT    = "8080"
 	DEFAULT_DB_PATH = "./data/data.sqlite"
 )
 
 var help = flag.Bool("help", false, "Show help")
+var version = flag.Bool("version", false, "Show version")
 var port = flag.String("p", DEFAULT_PORT, "Port to listen on")
 var dbPath = flag.String("f", DEFAULT_DB_PATH, "Path to sqlite database file")
 
@@ -27,6 +31,11 @@ func main() {
 
 	if *help {
 		flag.Usage()
+		os.Exit(0)
+	}
+
+	if *version {
+		fmt.Printf("sqlite-rest version %s\n", VERSION)
 		os.Exit(0)
 	}
 
