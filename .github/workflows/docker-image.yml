@@ -21,13 +21,12 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.20" # Match Dockerfile
-          cache: true # Enable Go build/module caching
+          go-version: "1.20"
+          cache: true
 
       # *** This step is REQUIRED due to '-mod vendor' in Dockerfile ***
       - name: Vendor Go dependencies
         run: go mod vendor
-        # This creates the ./vendor directory needed by the Docker build's COPY step
 
       - name: Docker meta
         id: meta

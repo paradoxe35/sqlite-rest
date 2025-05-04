@@ -31,16 +31,13 @@ var defaultDangerousOperations = []string{
 // getDangerousOperations returns the list of dangerous operations
 // It checks if the user has defined custom dangerous operations via environment variables
 func getDangerousOperations() []string {
-	// Check if user has defined custom dangerous operations
-	customOperations := os.Getenv("SQLITE_REST_DANGEROUS_OPS")
-
 	// Check if the environment variable exists
-	_, exists := os.LookupEnv("SQLITE_REST_DANGEROUS_OPS")
+	customOperations, exists := os.LookupEnv("SQLITE_REST_DANGEROUS_OPS")
 
 	// If the environment variable exists (even if empty), use it
 	if exists {
 		// If it's empty, return an empty list (all operations allowed)
-		if customOperations == "ALL" {
+		if customOperations == "" {
 			return []string{}
 		}
 
@@ -48,7 +45,7 @@ func getDangerousOperations() []string {
 		operations := strings.Split(customOperations, ",")
 		// Trim whitespace
 		for i, op := range operations {
-			operations[i] = strings.TrimSpace(op)
+			operations[i] = strings.ToUpper(strings.TrimSpace(op))
 		}
 		return operations
 	}
