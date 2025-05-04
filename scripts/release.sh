@@ -26,7 +26,9 @@ PLATFORMS=(
 )
 
 # Build flags for optimization and smaller binaries
-BUILD_FLAGS="-trimpath -ldflags \"-s -w -X main.VERSION=${VERSION}\" -tags netgo"
+BUILD_FLAGS="-trimpath -tags netgo"
+# Define LDFLAGS separately
+LDFLAGS="-s -w -X main.VERSION=${VERSION}"
 
 # Create directories and build binaries for each platform
 for platform in "${PLATFORMS[@]}"; do
@@ -43,7 +45,7 @@ for platform in "${PLATFORMS[@]}"; do
   cp -R ./LICENSE ./README.md ./CHANGELOG.md "${DIR}/"
 
   # Build binary
-  GOOS=${OS} GOARCH=${ARCH} CGO_ENABLED=0 go build ${BUILD_FLAGS} -o "${BIN}" ./cmd/sqlite-rest.go
+  GOOS=${OS} GOARCH=${ARCH} CGO_ENABLED=0 go build ${BUILD_FLAGS} -ldflags="${LDFLAGS}" -o "${BIN}" ./cmd/sqlite-rest.go
 
   # Create archive
   pushd ./release > /dev/null
