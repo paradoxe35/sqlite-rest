@@ -83,12 +83,6 @@ func determineQueryType(query string) string {
 
 	if strings.HasPrefix(upperQuery, "SELECT") {
 		return "SELECT"
-	} else if strings.HasPrefix(upperQuery, "INSERT") {
-		return "INSERT"
-	} else if strings.HasPrefix(upperQuery, "UPDATE") {
-		return "UPDATE"
-	} else if strings.HasPrefix(upperQuery, "CREATE") {
-		return "CREATE"
 	} else if strings.HasPrefix(upperQuery, "SHOW TABLES") ||
 		strings.HasPrefix(upperQuery, "LIST TABLES") {
 		return "SHOW_TABLES"
@@ -98,6 +92,12 @@ func determineQueryType(query string) string {
 		return "EXPLAIN"
 	} else if strings.HasPrefix(upperQuery, "ANALYZE") {
 		return "ANALYZE"
+	} else if strings.HasPrefix(upperQuery, "INSERT") {
+		return "INSERT"
+	} else if strings.HasPrefix(upperQuery, "UPDATE") {
+		return "UPDATE"
+	} else if strings.HasPrefix(upperQuery, "CREATE") {
+		return "CREATE"
 	}
 
 	return "OTHER"
