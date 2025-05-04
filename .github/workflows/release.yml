@@ -26,9 +26,9 @@ jobs:
           ./scripts/release.sh
 
       - name: Prepare release draft
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           draft: false
           body: ${{ github.event.head_commit.message }}

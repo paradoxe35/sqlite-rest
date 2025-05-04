@@ -2,3 +2,4 @@ data.sqlite
 bin/
 build/
 data/
+release/
