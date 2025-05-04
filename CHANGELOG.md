@@ -9,19 +9,19 @@ Released on 2025-05-04
 
 ### Added
 - New metadata API endpoints:
-  - `/api/tables` - List all tables in the database
-  - `/api/tables/:table` - Get the schema of a specific table
-  - `/api/tables/:table/foreign-keys` - Get foreign key relationships for a specific table
-  - `/api/db` - Get general database information
+  - `/__/tables` - List all tables in the database
+  - `/__/tables/:table` - Get the schema of a specific table
+  - `/__/tables/:table/foreign-keys` - Get foreign key relationships for a specific table
+  - `/__/db` - Get general database information
 - New utility API endpoints:
-  - `/api/health` - Health check endpoint
-  - `/api/version` - API version endpoint
+  - `/__/health` - Health check endpoint
+  - `/__/version` - API version endpoint
 - Custom router to handle both API and data routes
 - Improved build process with support for more platforms
 - SHA256 checksums for release artifacts
 
 ### Changed
-- Moved SQL execution endpoint to `/api/exec` for better organization
+- Moved SQL execution endpoint to `/__/exec` for better organization
 - Updated documentation with examples for all new endpoints
 - Improved error handling in API responses
 - Updated Go dependencies
