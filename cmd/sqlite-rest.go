@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/julienschmidt/httprouter"
 	"github.com/paradoxe35/sqlite-rest/pkg/controllers"
 	"github.com/paradoxe35/sqlite-rest/pkg/middleware"
 )
@@ -55,16 +54,29 @@ func main() {
 	}
 	log.Printf("Using database in %s\n", *dbPath)
 
-	router := httprouter.New()
+	// Create a custom router that can handle both API and data routes
+	router := middleware.NewCustomRouter()
 
+	// Metadata endpoints
+	router.GET("/api/tables", controllers.GetTables(*dbPath))
+	router.GET("/api/tables/:table", controllers.GetTableSchema(*dbPath))
+	router.GET("/api/tables/:table/foreign-keys", controllers.GetForeignKeys(*dbPath))
+	router.GET("/api/db", controllers.GetDatabaseInfo(*dbPath))
+
+	// Utility endpoints
+	router.GET("/api/health", controllers.HealthCheck(*dbPath))
+	router.GET("/api/version", controllers.GetApiVersion())
+
+	// SQL execution endpoint
+	router.OPTIONS("/api/exec", controllers.Exec(*dbPath))
+
+	// Core CRUD endpoints
 	router.GET("/:table", controllers.GetAll(*dbPath))
 	router.GET("/:table/:id", controllers.Get(*dbPath))
 	router.POST("/:table", controllers.Create(*dbPath))
 	router.PATCH("/:table/:id", controllers.Update(*dbPath))
 	// router.PUT("/:table/:id", controllers.Update(*dbPath))
 	router.DELETE("/:table/:id", controllers.Delete(*dbPath))
-
-	router.OPTIONS("/__/exec", controllers.Exec(*dbPath))
 
 	// Check if authentication is enabled
 	username := os.Getenv("SQLITE_REST_USERNAME")

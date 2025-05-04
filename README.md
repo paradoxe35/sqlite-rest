@@ -57,12 +57,26 @@ services:
 
 ## API
 
+# Core API
+
 [Search all records](#search-all-records) - `GET /:table` <br>
 [Get record by id](#get-record-by-id) - `GET /:table/:id` <br>
 [Create record](#create-record) - `POST /:table` <br>
 [Update record by id](#update-record) - `PATCH /:table/:id` <br>
 [Delete record by id](#delete-record) - `DELETE /:table/:id` <br>
-[Execute arbitrary query](#execute-arbitrary-query) - `OPTIONS /__/exec` <br>
+[Execute arbitrary query](#execute-arbitrary-query) - `OPTIONS /api/exec` <br>
+
+# Metadata API
+
+[List all tables](#list-all-tables) - `GET /api/tables` <br>
+[Get table schema](#get-table-schema) - `GET /api/tables/:table` <br>
+[Get foreign keys](#get-foreign-keys) - `GET /api/tables/:table/foreign-keys` <br>
+[Get database info](#get-database-info) - `GET /api/db` <br>
+
+# Utility API
+
+[Health check](#health-check) - `GET /api/health` <br>
+[API version](#api-version) - `GET /api/version` <br>
 
 ### Search all records
 
@@ -230,7 +244,7 @@ $ curl -X DELETE localhost:8080/cats/1
 
 Execute an arbitrary query. ⚠️ Experimental<br>
 
-Request: `OPTIONS /__/exec`<br>
+Request: `OPTIONS /api/exec`<br>
 
 This endpoint is protected by authentication when enabled. It allows executing SQL queries and returns the results.
 
@@ -259,7 +273,7 @@ SQLITE_REST_DANGEROUS_OPS=""
 Example of creating a table:<br>
 
 ```bash
-$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "CREATE TABLE cats (id INTEGER PRIMARY KEY, name TEXT, paw INTEGER)"}' localhost:8080/__/exec
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "CREATE TABLE cats (id INTEGER PRIMARY KEY, name TEXT, paw INTEGER)"}' localhost:8080/api/exec
 
 {
   "status": "success",
@@ -271,7 +285,7 @@ $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "CREATE TABL
 Example of inserting data:<br>
 
 ```bash
-$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "INSERT INTO cats (name, paw) VALUES (\"Tequila\", 4)"}' localhost:8080/__/exec
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "INSERT INTO cats (name, paw) VALUES (\"Tequila\", 4)"}' localhost:8080/api/exec
 
 {
   "status": "success",
@@ -283,7 +297,7 @@ $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "INSERT INTO
 Example of selecting data:<br>
 
 ```bash
-$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SELECT * FROM cats"}' localhost:8080/__/exec
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SELECT * FROM cats"}' localhost:8080/api/exec
 
 {
   "status": "success",
@@ -302,7 +316,7 @@ $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SELECT * FR
 Example of listing tables:<br>
 
 ```bash
-$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SHOW TABLES"}' localhost:8080/__/exec
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SHOW TABLES"}' localhost:8080/api/exec
 
 {
   "status": "success",
@@ -318,6 +332,151 @@ $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SHOW TABLES
 ```
 
 You can also use `LIST TABLES` as an alternative to `SHOW TABLES`.
+
+### List all tables
+
+Get a list of all tables in the database.
+
+Request: `GET /api/tables`
+
+Example:
+
+```bash
+$ curl localhost:8080/api/tables
+
+{
+  "status": "success",
+  "tables": ["cats", "dogs", "birds"],
+  "count": 3
+}
+```
+
+### Get table schema
+
+Get the schema of a specific table.
+
+Request: `GET /api/tables/:table`
+
+Example:
+
+```bash
+$ curl localhost:8080/api/tables/cats
+
+{
+  "status": "success",
+  "table": "cats",
+  "schema": [
+    {
+      "cid": 0,
+      "name": "id",
+      "type": "INTEGER",
+      "notnull": false,
+      "default_val": null,
+      "pk": 1
+    },
+    {
+      "cid": 1,
+      "name": "name",
+      "type": "TEXT",
+      "notnull": false,
+      "default_val": null,
+      "pk": 0
+    },
+    {
+      "cid": 2,
+      "name": "paw",
+      "type": "INTEGER",
+      "notnull": false,
+      "default_val": null,
+      "pk": 0
+    }
+  ]
+}
+```
+
+### Get foreign keys
+
+Get the foreign key relationships for a specific table.
+
+Request: `GET /api/tables/:table/foreign-keys`
+
+Example:
+
+```bash
+$ curl localhost:8080/api/tables/cats/foreign-keys
+
+{
+  "status": "success",
+  "table": "cats",
+  "foreign_keys": [
+    {
+      "id": 0,
+      "seq": 0,
+      "table": "owners",
+      "from": "owner_id",
+      "to": "id",
+      "on_update": "NO ACTION",
+      "on_delete": "NO ACTION",
+      "match": "NONE"
+    }
+  ]
+}
+```
+
+### Get database info
+
+Get general information about the database.
+
+Request: `GET /api/db`
+
+Example:
+
+```bash
+$ curl localhost:8080/api/db
+
+{
+  "status": "success",
+  "sqlite_version": "3.36.0",
+  "table_count": 3,
+  "tables": ["cats", "dogs", "birds"],
+  "database_size": 16384,
+  "database_path": "./data/data.sqlite"
+}
+```
+
+### Health check
+
+Check if the API is healthy.
+
+Request: `GET /api/health`
+
+Example:
+
+```bash
+$ curl localhost:8080/api/health
+
+{
+  "status": "success",
+  "message": "API is healthy"
+}
+```
+
+### API version
+
+Get the API version.
+
+Request: `GET /api/version`
+
+Example:
+
+```bash
+$ curl localhost:8080/api/version
+
+{
+  "status": "success",
+  "version": "1.0.0"
+}
+```
 
 ## License
 
