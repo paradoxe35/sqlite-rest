@@ -231,7 +231,7 @@ func GetApiVersion() httprouter.Handle {
 		// Send response
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":  "success",
-			"version": "1.0.0", // This should match the VERSION constant in main.go
+			"version": "1.1.0",
 		})
 	}
 }

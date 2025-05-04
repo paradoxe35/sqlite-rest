@@ -1,20 +1,90 @@
-# sqlite-rest
+# SQLite REST
 
-Expose CRUD operations for SQLite database over HTTP via REST API.
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/paradoxe35/sqlite-rest)](https://github.com/paradoxe35/sqlite-rest/releases/latest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/paradoxe35/sqlite-rest)](https://goreportcard.com/report/github.com/paradoxe35/sqlite-rest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A lightweight, high-performance REST API for SQLite databases. Expose CRUD operations and database metadata over HTTP with minimal configuration.
+
+## Features
+
+- **Full CRUD Operations**: Create, read, update, and delete records via REST endpoints
+- **Metadata API**: Explore database structure, table schemas, and relationships
+- **SQL Execution**: Run arbitrary SQL queries with security controls
+- **Filtering & Pagination**: Filter records with SQL or JSON syntax, with pagination support
+- **Authentication**: Basic auth support for securing your API
+- **Cross-Platform**: Available for Windows, macOS, and Linux (including ARM support)
+- **Docker Support**: Easy deployment with Docker
+- **Minimal Footprint**: Small binary size and low memory usage
+
+## Quick Start
+
+```bash
+# Download and run (Linux/macOS)
+curl -L https://github.com/paradoxe35/sqlite-rest/releases/latest/download/sqlite-rest_v1.1.0_linux-amd64.tar.gz | tar xz
+./sqlite-rest
+
+# Or with Docker
+docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data/data.sqlite:rw ghcr.io/paradoxe35/sqlite-rest
+```
 
 ## Installation
 
 ### From releases page
 
-Download the binary for your platform from the [releases page](https://github.com/paradoxe35/sqlite-rest/releases)
+Download the binary for your platform from the [releases page](https://github.com/paradoxe35/sqlite-rest/releases/latest).
+
+```bash
+# Linux/macOS
+curl -L https://github.com/paradoxe35/sqlite-rest/releases/latest/download/sqlite-rest_v1.1.0_linux-amd64.tar.gz | tar xz
+chmod +x sqlite-rest
+./sqlite-rest
+
+# Windows (PowerShell)
+Invoke-WebRequest -Uri "https://github.com/paradoxe35/sqlite-rest/releases/latest/download/sqlite-rest_v1.1.0_windows-amd64.zip" -OutFile "sqlite-rest.zip"
+Expand-Archive -Path "sqlite-rest.zip" -DestinationPath "."
+.\sqlite-rest.exe
+```
 
 ### From source
 
 ```bash
-$ go get github.com/paradoxe35/sqlite-rest
+# Clone the repository
+git clone https://github.com/paradoxe35/sqlite-rest.git
+cd sqlite-rest
+
+# Build the binary
+go build -o sqlite-rest ./cmd/sqlite-rest.go
+
+# Run the server
+./sqlite-rest
 ```
 
 ### From Docker
+
+```bash
+# Pull and run the image
+docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data/data.sqlite:rw ghcr.io/paradoxe35/sqlite-rest
+
+# Or with docker-compose
+docker-compose up -d
+```
+
+## CLI Usage
+
+```bash
+# Show help
+sqlite-rest --help
+
+# Show version
+sqlite-rest --version
+
+# Run with custom port and database path
+sqlite-rest -p 3000 -f ./path/to/database.sqlite
+
+# Run with default settings (port 8080, database at ./data/data.sqlite)
+sqlite-rest
+```
 
 ## Authentication
 
@@ -36,23 +106,42 @@ $ docker run -p 8080:8080 -v "$(pwd)"/data.sqlite:/app/data/data.sqlite:rw \
 
 Example with Docker Compose:
 
+Create a `docker-compose.yml` file:
+
 ```yaml
 version: "3.7"
 
 services:
   sqlite-rest:
     image: ghcr.io/paradoxe35/sqlite-rest
+    container_name: sqlite-rest
+    restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
-      - ./data.sqlite:/app/data/data.sqlite:rw # OR sqlite-data:/app/data
+      - ./data:/app/data:rw  # Mount a directory for the database
     environment:
       - SQLITE_REST_USERNAME=admin
       - SQLITE_REST_PASSWORD=secret
+      # Optional: Customize dangerous operations
+      - SQLITE_REST_DANGEROUS_OPS=DROP TABLE,DELETE FROM
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/__/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
 
-# volumes:
-#   sqlite-data:
-#     driver: local
+volumes:
+  sqlite-data:
+    driver: local
+```
+
+Then run:
+
+```bash
+mkdir -p data
+docker-compose up -d
 ```
 
 ## API
@@ -474,10 +563,24 @@ $ curl localhost:8080/__/version
 
 {
   "status": "success",
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
 ```
 
+## Credits
+
+This project was inspired by and builds upon [jonamat/sqlite-rest](https://github.com/jonamat/sqlite-rest). See [CREDITS.md](CREDITS.md) for more details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
 ## License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
