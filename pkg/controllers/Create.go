@@ -15,7 +15,7 @@ func Create(dbPath string) httprouter.Handle {
 		// Create sql.DB instance
 		db, err := db.Open(dbPath)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Database error: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 		defer db.Close()
@@ -23,7 +23,7 @@ func Create(dbPath string) httprouter.Handle {
 		// Parse table name from params
 		tableSelect := params.ByName("table")
 		if tableSelect == "" {
-			http.Error(w, "Missing table", http.StatusBadRequest)
+			sendJSONError(w, "Missing table parameter", http.StatusBadRequest)
 			return
 		}
 
@@ -31,12 +31,12 @@ func Create(dbPath string) httprouter.Handle {
 		data := make(map[string]interface{})
 		err = json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			sendJSONError(w, fmt.Sprintf("Invalid request body: %s", err.Error()), http.StatusBadRequest)
 			return
 		}
 
 		if len(data) == 0 {
-			http.Error(w, "Missing data", http.StatusBadRequest)
+			sendJSONError(w, "Missing data in request body", http.StatusBadRequest)
 			return
 		}
 
@@ -70,19 +70,30 @@ func Create(dbPath string) httprouter.Handle {
 		// Execute query
 		res, err := db.Exec(fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableSelect, strings.Join(columnNames, ", "), columnValuesString))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			// Check if this is a syntax error (client error) or a server error
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "no such table") {
+				sendJSONError(w, fmt.Sprintf("Table not found: %s", tableSelect), http.StatusBadRequest)
+			} else if strings.Contains(errMsg, "constraint failed") || strings.Contains(errMsg, "UNIQUE constraint") {
+				sendJSONError(w, fmt.Sprintf("Constraint violation: %s", errMsg), http.StatusBadRequest)
+			} else {
+				sendJSONError(w, fmt.Sprintf("Error creating record: %s", errMsg), http.StatusInternalServerError)
+			}
 			return
 		}
 
 		// Get ID
 		id, err := res.LastInsertId()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Error retrieving inserted ID: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 
-		// Return ID
+		// Return success response
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]int64{"id": id})
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "success",
+			"id":     id,
+		})
 	}
 }

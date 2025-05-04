@@ -17,7 +17,7 @@ func Get(dbPath string) httprouter.Handle {
 		// Create sql.DB instance
 		db, err := db.Open(dbPath)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Database error: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 		defer db.Close()
@@ -25,19 +25,19 @@ func Get(dbPath string) httprouter.Handle {
 		// Parse table name from params
 		tableSelect := params.ByName("table")
 		if tableSelect == "" {
-			http.Error(w, "Missing table", http.StatusBadRequest)
+			sendJSONError(w, "Missing table parameter", http.StatusBadRequest)
 			return
 		}
 
 		// Parse id from params
 		idParam := params.ByName("id")
 		if idParam == "" {
-			http.Error(w, "Missing ID", http.StatusBadRequest)
+			sendJSONError(w, "Missing ID parameter", http.StatusBadRequest)
 			return
 		}
 		id, err := strconv.ParseInt(idParam, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			sendJSONError(w, fmt.Sprintf("Invalid ID format: %s", err.Error()), http.StatusBadRequest)
 			return
 		}
 
@@ -50,7 +50,15 @@ func Get(dbPath string) httprouter.Handle {
 		// Execute query
 		rows, err := db.Query(fmt.Sprintf("SELECT %s FROM %s WHERE id = %d", columnsSelect, tableSelect, id))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			// Check if this is a syntax error (client error) or a server error
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "no such table") {
+				sendJSONError(w, fmt.Sprintf("Table not found: %s", tableSelect), http.StatusBadRequest)
+			} else if strings.Contains(errMsg, "no such column") {
+				sendJSONError(w, fmt.Sprintf("Invalid column in query: %s", errMsg), http.StatusBadRequest)
+			} else {
+				sendJSONError(w, fmt.Sprintf("Error retrieving record: %s", errMsg), http.StatusInternalServerError)
+			}
 			return
 		}
 		defer rows.Close()
@@ -58,14 +66,14 @@ func Get(dbPath string) httprouter.Handle {
 		// Get column names
 		columnNames, err := rows.Columns()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Error retrieving column names: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 
 		// Get column types
 		columnTypes, err := rows.ColumnTypes()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Error retrieving column types: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 
@@ -94,14 +102,14 @@ func Get(dbPath string) httprouter.Handle {
 		// Check if row exists
 		next := rows.Next()
 		if !next {
-			http.Error(w, "Not found", http.StatusNotFound)
+			sendJSONError(w, fmt.Sprintf("Record with ID %d not found", id), http.StatusNotFound)
 			return
 		}
 
 		// Scan row into column pointers
 		err = rows.Scan(columnPtrs...)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Error scanning record data: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 
@@ -148,15 +156,21 @@ func Get(dbPath string) httprouter.Handle {
 					data[columnKey] = nil
 				}
 			}
-
 		}
 
-		// Return data
+		// Return success response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		err = json.NewEncoder(w).Encode(data)
+		
+		// Add status field to response
+		responseData := map[string]interface{}{
+			"status": "success",
+			"data":   data,
+		}
+		
+		err = json.NewEncoder(w).Encode(responseData)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Error encoding response: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 	}

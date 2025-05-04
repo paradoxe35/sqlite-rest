@@ -24,7 +24,7 @@ func GetAll(dbPath string) httprouter.Handle {
 		// Create sql.DB instance
 		db, err := db.Open(dbPath)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Database error: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 		defer db.Close()
@@ -32,7 +32,7 @@ func GetAll(dbPath string) httprouter.Handle {
 		// Parse table name from params
 		tableSelect := params.ByName("table")
 		if tableSelect == "" {
-			http.Error(w, "Missing table", http.StatusBadRequest)
+			sendJSONError(w, "Missing table parameter", http.StatusBadRequest)
 			return
 		}
 
@@ -41,6 +41,8 @@ func GetAll(dbPath string) httprouter.Handle {
 		columnsParam := r.URL.Query().Get("cols")
 		if columnsParam == "" {
 			columnsSelect = "*"
+		} else {
+			columnsSelect = columnsParam
 		}
 
 		// Parse filters_raw from query string and build WHERE clause
@@ -50,16 +52,16 @@ func GetAll(dbPath string) httprouter.Handle {
 		if filtersParam != "" {
 			unescapedFilters, err := url.QueryUnescape(filtersParam)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				sendJSONError(w, fmt.Sprintf("Error unescaping filters_raw: %s", err.Error()), http.StatusBadRequest)
 				return
 			}
 			whereClause = "WHERE " + unescapedFilters
 		}
 
 		filtersStruct := r.URL.Query().Get("filters")
-		if whereClause != "" {
+		if filtersStruct != "" {
 			if filtersParam != "" {
-				http.Error(w, "Cannot use both filters and filters_raw", http.StatusBadRequest)
+				sendJSONError(w, "Cannot use both filters and filters_raw parameters", http.StatusBadRequest)
 				return
 			}
 
@@ -67,12 +69,12 @@ func GetAll(dbPath string) httprouter.Handle {
 
 			unescapedFilters, err := url.QueryUnescape(filtersStruct)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				sendJSONError(w, fmt.Sprintf("Error unescaping filters: %s", err.Error()), http.StatusBadRequest)
 				return
 			}
 			err = json.Unmarshal([]byte(unescapedFilters), &filterArr)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				sendJSONError(w, fmt.Sprintf("Invalid filters format: %s", err.Error()), http.StatusBadRequest)
 				return
 			}
 
@@ -95,7 +97,7 @@ func GetAll(dbPath string) httprouter.Handle {
 		var offsetClause string
 		offsetParam := r.URL.Query().Get("offset")
 		if offsetParam != "" && limitParam == "" {
-			http.Error(w, "Cannot use offset without limit", http.StatusBadRequest)
+			sendJSONError(w, "Cannot use offset parameter without limit parameter", http.StatusBadRequest)
 			return
 		}
 		if offsetParam != "" {
@@ -112,14 +114,25 @@ func GetAll(dbPath string) httprouter.Handle {
 		// Parse order direction from query string
 		orderDir := r.URL.Query().Get("order_dir")
 		if orderDir != "" && orderByParam == "" {
-			http.Error(w, "Cannot use order_dir without order_by", http.StatusBadRequest)
+			sendJSONError(w, "Cannot use order_dir parameter without order_by parameter", http.StatusBadRequest)
 			return
 		}
 
 		// Execute query
-		rows, err := db.Query(fmt.Sprintf("SELECT %s FROM %s %s %s %s %s %s", columnsSelect, tableSelect, whereClause, orderByClause, orderDir, limitClause, offsetClause))
+		query := fmt.Sprintf("SELECT %s FROM %s %s %s %s %s %s", columnsSelect, tableSelect, whereClause, orderByClause, orderDir, limitClause, offsetClause)
+		rows, err := db.Query(query)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			// Check if this is a syntax error (client error) or a server error
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "no such table") {
+				sendJSONError(w, fmt.Sprintf("Table not found: %s", tableSelect), http.StatusBadRequest)
+			} else if strings.Contains(errMsg, "no such column") {
+				sendJSONError(w, fmt.Sprintf("Invalid column in query: %s", errMsg), http.StatusBadRequest)
+			} else if strings.Contains(errMsg, "syntax error") {
+				sendJSONError(w, fmt.Sprintf("SQL syntax error: %s", errMsg), http.StatusBadRequest)
+			} else {
+				sendJSONError(w, fmt.Sprintf("Error executing query: %s", errMsg), http.StatusInternalServerError)
+			}
 			return
 		}
 		defer rows.Close()
@@ -128,14 +141,14 @@ func GetAll(dbPath string) httprouter.Handle {
 		var columnNames []string
 		columnNames, err = rows.Columns()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Error retrieving column names: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 
 		// Get column types
 		columnTypes, err := rows.ColumnTypes()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Error retrieving column types: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 
@@ -166,7 +179,7 @@ func GetAll(dbPath string) httprouter.Handle {
 			// Scan row into column pointers
 			err = rows.Scan(columnPtrs...)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				sendJSONError(w, fmt.Sprintf("Error scanning row data: %s", err.Error()), http.StatusInternalServerError)
 				return
 			}
 
@@ -217,8 +230,15 @@ func GetAll(dbPath string) httprouter.Handle {
 			data = append(data, rowData)
 		}
 
+		// Check for errors from iterating over rows
+		if err = rows.Err(); err != nil {
+			sendJSONError(w, fmt.Sprintf("Error iterating over rows: %s", err.Error()), http.StatusInternalServerError)
+			return
+		}
+
 		// Compose response and return data
 		response := map[string]interface{}{
+			"status":     "success",
 			"total_rows": len(data),
 			"data":       data,
 		}
@@ -241,7 +261,7 @@ func GetAll(dbPath string) httprouter.Handle {
 		w.WriteHeader(http.StatusOK)
 		err = json.NewEncoder(w).Encode(response)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Error encoding response: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 	}

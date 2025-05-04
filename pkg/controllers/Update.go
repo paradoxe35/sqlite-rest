@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/paradoxe35/sqlite-rest/pkg/db"
@@ -15,7 +16,7 @@ func Update(dbPath string) httprouter.Handle {
 		// Create sql.DB instance
 		db, err := db.Open(dbPath)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Database error: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 		defer db.Close()
@@ -23,19 +24,19 @@ func Update(dbPath string) httprouter.Handle {
 		// Parse table name from params
 		tableSelect := params.ByName("table")
 		if tableSelect == "" {
-			http.Error(w, "Missing table", http.StatusBadRequest)
+			sendJSONError(w, "Missing table parameter", http.StatusBadRequest)
 			return
 		}
 
 		// Parse id from params
 		idParam := params.ByName("id")
 		if idParam == "" {
-			http.Error(w, "Missing ID", http.StatusBadRequest)
+			sendJSONError(w, "Missing ID parameter", http.StatusBadRequest)
 			return
 		}
 		id, err := strconv.ParseInt(idParam, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			sendJSONError(w, fmt.Sprintf("Invalid ID format: %s", err.Error()), http.StatusBadRequest)
 			return
 		}
 
@@ -43,12 +44,12 @@ func Update(dbPath string) httprouter.Handle {
 		data := make(map[string]interface{})
 		err = json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			sendJSONError(w, fmt.Sprintf("Invalid request body: %s", err.Error()), http.StatusBadRequest)
 			return
 		}
 
 		if len(data) == 0 {
-			http.Error(w, "Missing data", http.StatusBadRequest)
+			sendJSONError(w, "Missing data in request body", http.StatusBadRequest)
 			return
 		}
 
@@ -78,13 +79,35 @@ func Update(dbPath string) httprouter.Handle {
 		columnValuesString = columnValuesString[:len(columnValuesString)-1]
 
 		// Execute query
-		_, err = db.Exec(fmt.Sprintf("UPDATE %s SET %s WHERE id = %d", tableSelect, columnValuesString, id))
+		result, err := db.Exec(fmt.Sprintf("UPDATE %s SET %s WHERE id = %d", tableSelect, columnValuesString, id))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			// Check if this is a syntax error (client error) or a server error
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "no such table") {
+				sendJSONError(w, fmt.Sprintf("Table not found: %s", tableSelect), http.StatusBadRequest)
+			} else if strings.Contains(errMsg, "no such column") {
+				sendJSONError(w, fmt.Sprintf("Invalid column in update: %s", errMsg), http.StatusBadRequest)
+			} else if strings.Contains(errMsg, "constraint failed") || strings.Contains(errMsg, "UNIQUE constraint") {
+				sendJSONError(w, fmt.Sprintf("Constraint violation: %s", errMsg), http.StatusBadRequest)
+			} else {
+				sendJSONError(w, fmt.Sprintf("Error updating record: %s", errMsg), http.StatusInternalServerError)
+			}
 			return
 		}
 
+		// Check if any rows were affected
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected == 0 {
+			sendJSONError(w, fmt.Sprintf("Record with ID %d not found", id), http.StatusNotFound)
+			return
+		}
+
+		// Return success response
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]int64{"id": id})
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "success",
+			"id":     id,
+		})
 	}
 }
