@@ -119,7 +119,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/app/data:rw  # Mount a directory for the database
+      - sqlite-data:/app/data:rw  # Mount a directory for the database
     environment:
       - SQLITE_REST_USERNAME=admin
       - SQLITE_REST_PASSWORD=secret
@@ -140,7 +140,6 @@ volumes:
 Then run:
 
 ```bash
-mkdir -p data
 docker-compose up -d
 ```
 
