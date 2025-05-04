@@ -1,74 +1,44 @@
-#!/bin/bash
-
-# Exit on error, undefined variable, or pipe failure
-set -euo pipefail
-
-# Get version from git tag
-VERSION=$(git describe --tags)
+VERSION=`git describe --tags`
 PREFIX=sqlite-rest_${VERSION}_
+
+set -e
 
 echo "Building assets for the release ${VERSION}..."
 
-# Cleanup release dir
+# Cleanup relaese dir
 rm -rf ./release
-mkdir -p ./release
 
-# Define platforms to build for
-PLATFORMS=(
-  "windows:amd64:.exe"
-  "windows:386:.exe"
-  "linux:amd64:"
-  "linux:386:"
-  "linux:arm:"
-  "linux:arm64:"
-  "darwin:amd64:"
-  "darwin:arm64:"
-)
+# Create temp dirs
+mkdir ./release/ \
+./release/${PREFIX}windows-amd64/ \
+./release/${PREFIX}linux-amd64/ \
+./release/${PREFIX}linux-arm/ \
+./release/${PREFIX}linux-arm64/
 
-# Build flags for optimization and smaller binaries
-BUILD_FLAGS="-trimpath -ldflags '-s -w -X main.VERSION=${VERSION}' -tags netgo"
+# Copy assets
+cp -R ./LICENSE ./README.md ./CHANGELOG.md ./release/${PREFIX}windows-amd64/
+cp -R ./LICENSE ./README.md ./CHANGELOG.md ./release/${PREFIX}linux-amd64/
+cp -R ./LICENSE ./README.md ./CHANGELOG.md ./release/${PREFIX}linux-arm/
+cp -R ./LICENSE ./README.md ./CHANGELOG.md ./release/${PREFIX}linux-arm64/
 
-# Create directories and build binaries for each platform
-for platform in "${PLATFORMS[@]}"; do
-  IFS=: read -r OS ARCH EXT <<< "${platform}"
-  DIR="./release/${PREFIX}${OS}-${ARCH}"
-  BIN="${DIR}/sqlite-rest${EXT}"
+# Build for each platform
+GOOS=windows GOARCH=amd64 go build -o ./release/${PREFIX}windows-amd64/sqlite-rest.exe ./cmd/sqlite-rest.go &
+GOOS=linux GOARCH=amd64 go build -o ./release/${PREFIX}linux-amd64/sqlite-rest ./cmd/sqlite-rest.go &
+GOOS=linux GOARCH=arm64 go build -o ./release/${PREFIX}linux-arm64/sqlite-rest ./cmd/sqlite-rest.go &
+GOOS=linux GOARCH=arm go build -o ./release/${PREFIX}linux-arm/sqlite-rest ./cmd/sqlite-rest.go &
+wait
 
-  echo "Building for ${OS}/${ARCH}..."
+# Archive release folders
+cd ./release/
+zip -r ./${PREFIX}windows-amd64.zip ./${PREFIX}windows-amd64/ &
+tar -czvf ./${PREFIX}linux-amd64.tar.gz ./${PREFIX}linux-amd64/ &
+tar -czvf ./${PREFIX}linux-arm64.tar.gz ./${PREFIX}linux-arm64/ &
+tar -czvf ./${PREFIX}linux-arm.tar.gz ./${PREFIX}linux-arm/ &
+wait
 
-  # Create directory
-  mkdir -p "${DIR}"
-
-  # Copy assets
-  cp -R ./LICENSE ./README.md ./CHANGELOG.md "${DIR}/"
-
-  # Build binary
-  GOOS=${OS} GOARCH=${ARCH} CGO_ENABLED=0 go build ${BUILD_FLAGS} -o "${BIN}" ./cmd/sqlite-rest.go
-
-  # Create archive
-  pushd ./release > /dev/null
-  if [[ "${OS}" == "windows" ]]; then
-    zip -r "./${PREFIX}${OS}-${ARCH}.zip" "./${PREFIX}${OS}-${ARCH}/" > /dev/null
-  else
-    tar -czf "./${PREFIX}${OS}-${ARCH}.tar.gz" "./${PREFIX}${OS}-${ARCH}/" > /dev/null
-  fi
-  popd > /dev/null
-
-  # Calculate checksum
-  if [[ "${OS}" == "windows" ]]; then
-    pushd ./release > /dev/null
-    sha256sum "./${PREFIX}${OS}-${ARCH}.zip" >> checksums.txt
-    popd > /dev/null
-  else
-    pushd ./release > /dev/null
-    sha256sum "./${PREFIX}${OS}-${ARCH}.tar.gz" >> checksums.txt
-    popd > /dev/null
-  fi
-
-  # Clean up directory
-  rm -rf "${DIR}"
-done
-
-echo "Build complete! Assets are in the ./release directory."
-echo "Generated checksums:"
-cat ./release/checksums.txt
+# Destroy temp dirs
+rm -rf ./${PREFIX}windows-amd64 &
+rm -rf ./${PREFIX}linux-amd64 &
+rm -rf ./${PREFIX}linux-arm64 &
+rm -rf ./${PREFIX}linux-arm &
+wait
