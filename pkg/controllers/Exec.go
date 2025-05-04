@@ -3,6 +3,7 @@ package controllers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -10,6 +11,27 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/paradoxe35/sqlite-rest/pkg/db"
 )
+
+// ErrorResponse represents a standardized error response
+type ErrorResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Code    int    `json:"code"`
+}
+
+// sendJSONError sends a JSON-formatted error response
+func sendJSONError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
+	response := ErrorResponse{
+		Status:  "error",
+		Message: message,
+		Code:    statusCode,
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
 
 type ExecBody struct {
 	Query string `json:"query"`
@@ -252,7 +274,7 @@ func Exec(dbPath string) httprouter.Handle {
 		// Create sql.DB instance
 		db, err := db.Open(dbPath)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, fmt.Sprintf("Database error: %s", err.Error()), http.StatusInternalServerError)
 			return
 		}
 		defer db.Close()
@@ -261,18 +283,18 @@ func Exec(dbPath string) httprouter.Handle {
 		data := ExecBody{}
 		err = json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			sendJSONError(w, fmt.Sprintf("Invalid request body: %s", err.Error()), http.StatusBadRequest)
 			return
 		}
 
 		if data.Query == "" {
-			http.Error(w, "Missing query", http.StatusBadRequest)
+			sendJSONError(w, "Missing query parameter", http.StatusBadRequest)
 			return
 		}
 
 		// Check if query is safe
 		if !isQuerySafe(data.Query) {
-			http.Error(w, "Query contains dangerous operations", http.StatusForbidden)
+			sendJSONError(w, "Query contains dangerous operations that are not allowed", http.StatusForbidden)
 			return
 		}
 
@@ -286,7 +308,9 @@ func Exec(dbPath string) httprouter.Handle {
 			// Handle SHOW TABLES command
 			tables, err := listTables(db)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				// For listing tables, most errors would be server-side issues
+				// since this is a simple query on sqlite_master
+				sendJSONError(w, fmt.Sprintf("Error listing tables: %s", err.Error()), http.StatusInternalServerError)
 				return
 			}
 
@@ -309,7 +333,17 @@ func Exec(dbPath string) httprouter.Handle {
 			// Handle SELECT query
 			rows, err := executeSelect(db, data.Query)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				// Check if this is a syntax error (client error) or a server error
+				errMsg := err.Error()
+				if strings.Contains(errMsg, "syntax error") ||
+					strings.Contains(errMsg, "no such table") ||
+					strings.Contains(errMsg, "no such column") {
+					// This is likely a client error - bad SQL syntax or referencing non-existent tables/columns
+					sendJSONError(w, fmt.Sprintf("Invalid SQL query: %s", errMsg), http.StatusBadRequest)
+				} else {
+					// This is likely a server error - database issues, etc.
+					sendJSONError(w, fmt.Sprintf("Error executing SELECT query: %s", errMsg), http.StatusInternalServerError)
+				}
 				return
 			}
 			result = map[string]interface{}{
@@ -322,7 +356,18 @@ func Exec(dbPath string) httprouter.Handle {
 			// Handle non-SELECT query
 			rowsAffected, err := executeNonSelect(db, data.Query)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				// Check if this is a syntax error (client error) or a server error
+				errMsg := err.Error()
+				if strings.Contains(errMsg, "syntax error") ||
+					strings.Contains(errMsg, "no such table") ||
+					strings.Contains(errMsg, "no such column") ||
+					strings.Contains(errMsg, "constraint failed") {
+					// This is likely a client error - bad SQL syntax or constraint violations
+					sendJSONError(w, fmt.Sprintf("Invalid SQL query: %s", errMsg), http.StatusBadRequest)
+				} else {
+					// This is likely a server error - database issues, etc.
+					sendJSONError(w, fmt.Sprintf("Error executing %s query: %s", strings.ToLower(queryType), errMsg), http.StatusInternalServerError)
+				}
 				return
 			}
 			result = map[string]interface{}{
