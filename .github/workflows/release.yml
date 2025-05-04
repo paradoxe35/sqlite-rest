@@ -27,24 +27,22 @@ jobs:
           echo "Extracting release notes for $VERSION"
 
           # Extract content between current version header and the next version header
+          # Use awk to find the section for the current version
           NOTES=$(awk -v ver="$VERSION" '
-            BEGIN { found=0; }
-            $0 ~ "^## " ver { found=1; next; }
-            found && $0 ~ "^## " { exit; }
-            found { print; }
-          ' CHANGELOG.md)
+            /^## / { if (p) exit; if ($2 == ver) p=1; next }
+            p { print }
+          ' CHANGELOG.md | sed '/^$/d' )
 
-          # If no notes found, use commit message
+          # If no notes found in CHANGELOG.md, use the commit message
           if [ -z "$NOTES" ]; then
+            echo "No specific notes found for $VERSION in CHANGELOG.md, using commit message."
             NOTES="${{ github.event.head_commit.message }}"
           fi
 
-          # Escape newlines for GitHub Actions
-          NOTES="${NOTES//'%'/'%25'}"
-          NOTES="${NOTES//$'\n'/'%0A'}"
-          NOTES="${NOTES//$'\r'/'%0D'}"
-
-          echo "notes=$NOTES" >> $GITHUB_OUTPUT
+          # Use heredoc to preserve multiline formatting for the output
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create assets
         run: |
