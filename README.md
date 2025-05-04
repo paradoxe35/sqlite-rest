@@ -342,9 +342,10 @@ For security reasons, the following operations are blocked by default:
 - DELETE FROM
 - TRUNCATE TABLE
 - ALTER TABLE
-- PRAGMA
 - ATTACH DATABASE
 - DETACH DATABASE
+
+Note: PRAGMA queries are now allowed by default as they can return useful data.
 
 You can customize the list of dangerous operations by setting the `SQLITE_REST_DANGEROUS_OPS` environment variable. This should be a comma-separated list of SQL operations to block. For example:
 
@@ -420,6 +421,44 @@ $ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "SHOW TABLES
 ```
 
 You can also use `LIST TABLES` as an alternative to `SHOW TABLES`.
+
+Example of using PRAGMA to get table information:<br>
+
+```bash
+$ curl -X OPTIONS -H "Content-Type: application/json" -d '{"query": "PRAGMA table_info(cats)"}' localhost:8080/__/exec
+
+{
+  "status": "success",
+  "type": "pragma",
+  "rows": [
+    {
+      "cid": 0,
+      "name": "id",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 1
+    },
+    {
+      "cid": 1,
+      "name": "name",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 2,
+      "name": "paw",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    }
+  ],
+  "count": 3
+}
+```
 
 ### List all tables
 

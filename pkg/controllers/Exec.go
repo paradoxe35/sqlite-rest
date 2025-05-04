@@ -23,7 +23,7 @@ var defaultDangerousOperations = []string{
 	"DELETE FROM",
 	"TRUNCATE TABLE",
 	"ALTER TABLE",
-	"PRAGMA",
+	// "PRAGMA" is removed to allow PRAGMA queries that return data
 	"ATTACH DATABASE",
 	"DETACH DATABASE",
 }
@@ -76,7 +76,7 @@ func isQuerySafe(query string) bool {
 	return true
 }
 
-// determineQueryType identifies if the query is a SELECT or non-SELECT query
+// determineQueryType identifies the type of SQL query
 func determineQueryType(query string) string {
 	trimmedQuery := strings.TrimSpace(query)
 	upperQuery := strings.ToUpper(trimmedQuery)
@@ -92,9 +92,29 @@ func determineQueryType(query string) string {
 	} else if strings.HasPrefix(upperQuery, "SHOW TABLES") ||
 		strings.HasPrefix(upperQuery, "LIST TABLES") {
 		return "SHOW_TABLES"
+	} else if strings.HasPrefix(upperQuery, "PRAGMA") {
+		return "PRAGMA"
+	} else if strings.HasPrefix(upperQuery, "EXPLAIN") {
+		return "EXPLAIN"
+	} else if strings.HasPrefix(upperQuery, "ANALYZE") {
+		return "ANALYZE"
 	}
 
 	return "OTHER"
+}
+
+// isDataReturningQuery checks if the query is expected to return data
+func isDataReturningQuery(queryType string) bool {
+	// These query types typically return data
+	dataReturningTypes := map[string]bool{
+		"SELECT":      true,
+		"PRAGMA":      true,
+		"EXPLAIN":     true,
+		"ANALYZE":     true,
+		"SHOW_TABLES": true,
+	}
+
+	return dataReturningTypes[queryType]
 }
 
 // listTables returns a list of all tables in the database
@@ -305,8 +325,8 @@ func Exec(dbPath string) httprouter.Handle {
 				"rows":   rows,
 				"count":  len(tables),
 			}
-		} else if queryType == "SELECT" {
-			// Handle SELECT query
+		} else if isDataReturningQuery(queryType) {
+			// Handle queries that return data (SELECT, PRAGMA, EXPLAIN, etc.)
 			rows, err := executeSelect(db, data.Query)
 			if err != nil {
 				// Check if this is a syntax error (client error) or a server error
@@ -318,18 +338,18 @@ func Exec(dbPath string) httprouter.Handle {
 					sendJSONError(w, fmt.Sprintf("Invalid SQL query: %s", errMsg), http.StatusBadRequest)
 				} else {
 					// This is likely a server error - database issues, etc.
-					sendJSONError(w, fmt.Sprintf("Error executing SELECT query: %s", errMsg), http.StatusInternalServerError)
+					sendJSONError(w, fmt.Sprintf("Error executing %s query: %s", strings.ToLower(queryType), errMsg), http.StatusInternalServerError)
 				}
 				return
 			}
 			result = map[string]interface{}{
 				"status": "success",
-				"type":   "select",
+				"type":   strings.ToLower(queryType),
 				"rows":   rows,
 				"count":  len(rows),
 			}
 		} else {
-			// Handle non-SELECT query
+			// Handle non-data-returning queries (INSERT, UPDATE, DELETE, etc.)
 			rowsAffected, err := executeNonSelect(db, data.Query)
 			if err != nil {
 				// Check if this is a syntax error (client error) or a server error
